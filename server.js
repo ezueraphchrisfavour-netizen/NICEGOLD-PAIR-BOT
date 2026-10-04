@@ -3322,7 +3322,8 @@ async function createSession(phone) {
     sock: null,
     pairingCode: null,
     createdAt: Date.now(),
-    reconnecting: false
+    reconnecting: false,
+    pairingRequested: false
   };
 
   sessions.set(id, session);
@@ -3341,47 +3342,70 @@ async function createSession(phone) {
   session.sock = sock;
   session.status = "CONNECTING";
   session.pairingCode = null;
+  session.pairingRequested = false;
 
   sock.ev.on(
     "creds.update",
     saveCreds
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | AUTOMATIC PAIRING CODE
+  |--------------------------------------------------------------------------
+  */
+
+  if (!state.creds.registered) {
+    setTimeout(async () => {
+      if (
+        session.pairingRequested ||
+        session.pairingCode ||
+        session.status === "CONNECTED"
+      ) {
+        return;
+      }
+
+      session.pairingRequested = true;
+
+      try {
+        log(
+          "PAIRING",
+          `Generating WhatsApp pairing code for ${id}`
+        );
+
+        const code =
+          await sock.requestPairingCode(id);
+
+        session.pairingCode = code;
+
+        log(
+          "PAIRING",
+          `Pairing code generated for ${id}: ${code}`
+        );
+      } catch (error) {
+        session.pairingRequested = false;
+        stats.errors++;
+
+        log(
+          "ERROR",
+          `Pairing failed: ${error?.message || error}`
+        );
+      }
+    }, 1500);
+  }
+
   sock.ev.on(
     "connection.update",
     async update => {
       const {
         connection,
-        lastDisconnect,
-        qr
+        lastDisconnect
       } = update;
-
-      if (
-        !sock.authState?.creds?.registered &&
-        !session.pairingCode
-      ) {
-        try {
-          const code = await sock.requestPairingCode(id);
-
-          session.pairingCode = code;
-
-          log(
-            "PAIRING",
-            `Pairing code generated for ${id}`
-          );
-        } catch (error) {
-          stats.errors++;
-
-          log(
-            "ERROR",
-            `Pairing failed: ${error.message}`
-          );
-        }
-      }
 
       if (connection === "open") {
         session.status = "CONNECTED";
         session.pairingCode = null;
+        session.pairingRequested = true;
 
         stats.connections++;
 
@@ -3413,109 +3437,20 @@ async function createSession(phone) {
           session.reconnecting = true;
 
           setTimeout(async () => {
-            session.reconnecting = false;
-
             try {
-              await createSession(id);
+              await createSession(phone);
             } catch (error) {
               stats.errors++;
 
               log(
                 "ERROR",
-                `Reconnect failed: ${error.message}`
+                `Reconnect failed: ${error?.message || error}`
               );
+            } finally {
+              session.reconnecting = false;
             }
           }, 3000);
         }
-      }
-    }
-  );
-
-  sock.ev.on(
-    "messages.upsert",
-    async ({ messages }) => {
-      for (const message of messages || []) {
-        await handleIncomingMessage(
-          sock,
-          message,
-          session
-        );
-      }
-    }
-  );
-
-  sock.ev.on(
-    "group-participants.update",
-    async update => {
-      try {
-        const {
-          id: groupId,
-          participants,
-          action
-        } = update;
-
-        if (
-          action !== "add" &&
-          action !== "remove"
-        ) {
-          return;
-        }
-
-        for (const participant of participants) {
-          const number =
-            participant.split("@")[0];
-
-          if (
-            action === "add" &&
-            settings.welcome
-          ) {
-            const text =
-              settings.welcomeText
-                .replace(
-                  /@user/g,
-                  `@${number}`
-                )
-                .replace(
-                  /@group/g,
-                  groupId
-                );
-
-            await sendText(
-              sock,
-              groupId,
-              text
-            );
-          }
-
-          if (
-            action === "remove" &&
-            settings.goodbye
-          ) {
-            const text =
-              settings.goodbyeText
-                .replace(
-                  /@user/g,
-                  `@${number}`
-                )
-                .replace(
-                  /@group/g,
-                  groupId
-                );
-
-            await sendText(
-              sock,
-              groupId,
-              text
-            );
-          }
-        }
-      } catch (error) {
-        stats.errors++;
-
-        log(
-          "ERROR",
-          `Participant update failed: ${error.message}`
-        );
       }
     }
   );
