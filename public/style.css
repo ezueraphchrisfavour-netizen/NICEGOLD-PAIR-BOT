@@ -2724,3 +2724,62 @@ select:focus {
 
 }
 
+
+/* NICEGOLD APP DOWNLOAD */
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.hero-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 16px;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: .4px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 183, 255, .24),
+    rgba(124, 58, 237, .30),
+    rgba(255, 20, 147, .20)
+  );
+  border: 1px solid rgba(100, 200, 255, .45);
+  box-shadow:
+    0 0 18px rgba(0, 183, 255, .18),
+    inset 0 0 20px rgba(255, 255, 255, .04);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease,
+    border-color .2s ease;
+}
+
+.hero-download-btn:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, .7);
+  box-shadow:
+    0 0 28px rgba(0, 183, 255, .30),
+    0 0 45px rgba(124, 58, 237, .18);
+}
+
+.hero-download-btn:active {
+  transform: scale(.98);
+}
+
+@media (max-width: 600px) {
+  .hero-download-btn {
+    font-size: 13px;
+    min-height: 50px;
+    padding: 0 14px;
+  }
+}
+
