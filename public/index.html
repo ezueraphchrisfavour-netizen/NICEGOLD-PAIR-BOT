@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#050711">
+  <title>NICEGOLDMON V1</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<!-- CINEMATIC VIDEO BACKGROUND -->
+
+<section class="video-hero">
+
+  <video
+    class="hero-video"
+    autoplay
+    muted
+    loop
+    playsinline
+    preload="auto"
+  >
+    <source src="/nicelogovid.mp4" type="video/mp4">
+  </video>
+
+  <div class="video-dark"></div>
+  <div class="video-fade"></div>
+
+  <div class="video-content">
+    <div class="video-mini">𓉳 NICEGOLDMON</div>
+    <h1>NICEGOLDMON V1</h1>
+    <p>WhatsApp Bot Control Center</p>
+  </div>
+
+</section>
+
+
+<!-- AMBIENT BACKGROUND -->
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+
+<!-- NAVIGATION -->
+
+<header class="topbar">
+
+  <div class="brand">
+
+    <div class="brand-icon">
+      <img src="/nicegold.jpg" alt="NICEGOLD">
+    </div>
+
+    <div>
+      <h2>NICEGOLDMON V1</h2>
+      <p>WhatsApp Bot Control Center</p>
+    </div>
+
+  </div>
+
+  <div class="top-status">
+    <span id="globalDot"></span>
+    <span id="globalStatus">CHECKING</span>
+  </div>
+
+</header>
+
+
+<main>
+
+<!-- HERO CONTROL -->
+
+<section class="hero glass">
+
+  <div>
+
+    <span class="eyebrow">
+      WEB CONTROL SYSTEM
+    </span>
+
+    <h2>
+      Control your bot from one place.
+    </h2>
+
+    <p>
+      Pair, configure and monitor your
+      NICEGOLDMON directly from the dashboard.
+    </p>
+
+  </div>
+
+  <button
+    class="hero-btn"
+    onclick="scrollToId('pairing')"
+  >
+    ＋ ADD BOT
+  </button>
+
+</section>
+
+
+<!-- STATISTICS -->
+
+<section class="stats-grid">
+
+  <div class="stat glass">
+    <span>🤖</span>
+    <b id="statBots">0</b>
+    <small>Connected Bots</small>
+  </div>
+
+  <div class="stat glass">
+    <span>💬</span>
+    <b id="statMessages">0</b>
+    <small>Messages</small>
+  </div>
+
+  <div class="stat glass">
+    <span>⚡</span>
+    <b id="statCommands">0</b>
+    <small>Commands</small>
+  </div>
+
+  <div class="stat glass">
+    <span>⏱</span>
+    <b id="statUptime">0s</b>
+    <small>Runtime</small>
+  </div>
+
+</section>
+
+
+<!-- PAIRING -->
+
+<section class="glass card" id="pairing">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      ＋
+    </div>
+
+    <div>
+      <h3>Connect WhatsApp</h3>
+      <p>
+        Pair a WhatsApp account with NICEGOLDMON.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="pair-box">
+
+    <label>
+      WhatsApp number
+
+      <div class="input-action">
+
+        <input
+          id="phone"
+          inputmode="numeric"
+          autocomplete="tel"
+          placeholder="2348012345678"
+        >
+
+        <button
+          id="pairBtn"
+          onclick="pairBot()"
+        >
+          GET CODE
+        </button>
+
+      </div>
+
+    </label>
+
+    <small>
+      Use the full country code without +, spaces or dashes.
+    </small>
+
+
+    <div
+      id="codeBox"
+      class="code-box hidden"
+    >
+
+      <span>PAIRING CODE</span>
+
+      <strong id="pairCode">
+        --------
+      </strong>
+
+      <button onclick="copyCode()">
+        COPY CODE
+      </button>
+
+    </div>
+
+
+    <div id="message"></div>
+
+  </div>
+
+</section>
+
+
+<!-- BOT SESSIONS -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      🤖
+    </div>
+
+    <div>
+      <h3>Bot Sessions</h3>
+      <p>
+        Manage every connected WhatsApp session.
+      </p>
+    </div>
+
+  </div>
+
+  <div
+    id="sessions"
+    class="sessions"
+  ></div>
+
+</section>
+
+
+<!-- SETTINGS -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      🎛
+    </div>
+
+    <div>
+      <h3>Bot Settings</h3>
+      <p>
+        Control the running NICEGOLDMON.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="settings-grid">
+
+    <label>
+      Bot Name
+      <input id="botName">
+    </label>
+
+    <label>
+      Command Prefix
+      <input
+        id="prefix"
+        maxlength="3"
+      >
+    </label>
+
+    <label>
+      Owner Name
+      <input id="ownerName">
+    </label>
+
+    <label>
+      Description
+      <input id="description">
+    </label>
+
+  </div>
+
+
+  <div class="switch-grid">
+
+    <label class="switch-row">
+      <span>
+        <b>Auto Reply</b>
+        <small>
+          Respond to saved keywords
+        </small>
+      </span>
+
+      <input
+        id="autoReply"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Welcome</b>
+        <small>
+          Welcome new group members
+        </small>
+      </span>
+
+      <input
+        id="welcome"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Goodbye</b>
+        <small>
+          Send goodbye messages
+        </small>
+      </span>
+
+      <input
+        id="goodbye"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Admin Only</b>
+        <small>
+          Restrict commands in groups
+        </small>
+      </span>
+
+      <input
+        id="adminOnly"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Anti-Link</b>
+        <small>
+          Link-control setting
+        </small>
+      </span>
+
+      <input
+        id="antiLink"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Anti-Spam</b>
+        <small>
+          Spam-control setting
+        </small>
+      </span>
+
+      <input
+        id="antiSpam"
+        type="checkbox"
+      >
+    </label>
+
+
+    <label class="switch-row">
+      <span>
+        <b>Typing</b>
+        <small>
+          Show composing status
+        </small>
+      </span>
+
+      <input
+        id="typing"
+        type="checkbox"
+      >
+    </label>
+
+  </div>
+
+
+  <div class="text-settings">
+
+    <label>
+      Welcome Message
+
+      <textarea
+        id="welcomeText"
+      ></textarea>
+
+    </label>
+
+
+    <label>
+      Goodbye Message
+
+      <textarea
+        id="goodbyeText"
+      ></textarea>
+
+    </label>
+
+  </div>
+
+
+  <button
+    class="save-btn"
+    onclick="saveSettings()"
+  >
+    💾 SAVE BOT SETTINGS
+  </button>
+
+</section>
+
+
+<!-- COMMAND MANAGER -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      🧩
+    </div>
+
+    <div>
+      <h3>Command Manager</h3>
+      <p>
+        Create simple bot commands from the website.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="form-grid">
+
+    <input
+      id="commandName"
+      placeholder="Command e.g. hello"
+    >
+
+    <input
+      id="commandResponse"
+      placeholder="Command response"
+    >
+
+    <button onclick="addCommand()">
+      ＋ ADD
+    </button>
+
+  </div>
+
+
+  <div
+    id="commands"
+    class="items"
+  ></div>
+
+</section>
+
+
+<!-- AUTO REPLIES -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      💬
+    </div>
+
+    <div>
+      <h3>Auto Reply Manager</h3>
+      <p>
+        Make NICEGOLDMON respond to selected words.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="form-grid">
+
+    <input
+      id="replyTrigger"
+      placeholder="Trigger e.g. hello"
+    >
+
+    <input
+      id="replyResponse"
+      placeholder="Automatic response"
+    >
+
+    <button onclick="addReply()">
+      ＋ ADD
+    </button>
+
+  </div>
+
+
+  <div
+    id="replies"
+    class="items"
+  ></div>
+
+</section>
+
+
+<!-- GROUP VIEWER -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      👥
+    </div>
+
+    <div>
+      <h3>Group Viewer</h3>
+      <p>
+        View groups belonging to a connected bot.
+      </p>
+    </div>
+
+  </div>
+
+
+  <select
+    id="groupSession"
+    onchange="loadGroups()"
+  >
+
+    <option value="">
+      Select a connected bot
+    </option>
+
+  </select>
+
+
+  <div
+    id="groups"
+    class="groups"
+  ></div>
+
+</section>
+
+
+<!-- ACTIVITY -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      📜
+    </div>
+
+    <div>
+      <h3>Live Activity</h3>
+      <p>
+        Recent NICEGOLDMON events.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div
+    id="logs"
+    class="logs"
+  ></div>
+
+</section>
+
+
+<!-- SERVER HEALTH -->
+
+<section class="glass card">
+
+  <div class="section-head">
+
+    <div class="section-symbol">
+      🖥
+    </div>
+
+    <div>
+      <h3>Server Health</h3>
+      <p>
+        Current Node process information.
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="health-grid">
+
+    <div>
+      <span>Memory</span>
+      <b id="memory">0 MB</b>
+    </div>
+
+    <div>
+      <span>Heap</span>
+      <b id="heap">0 MB</b>
+    </div>
+
+    <div>
+      <span>CPU Load</span>
+      <b id="cpu">0</b>
+    </div>
+
+    <div>
+      <span>Errors</span>
+      <b id="errors">0</b>
+    </div>
+
+  </div>
+
+</section>
+
+</main>
+
+
+<div
+  id="toast"
+  class="toast"
+></div>
+
+
+<script src="/app.js"></script>
+
+</body>
+</html>

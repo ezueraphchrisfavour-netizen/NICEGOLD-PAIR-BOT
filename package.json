@@ -1,0 +1,21 @@
+{
+  "name": "nicegold-mon-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NICEGOLD MON WhatsApp bot with a web pairing dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "latest",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "pino": "^9.6.0"
+  }
+}

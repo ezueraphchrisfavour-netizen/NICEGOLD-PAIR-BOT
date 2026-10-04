@@ -1,0 +1,11 @@
+node_modules/
+.env
+*.log
+server.log
+npm-debug.log*
+public/*.backup
+public/*.before-v1.1
+server.js.backup
+server.js.before-v1.1
+server.js.v1.1-backend-start
+public/nicelogovid.mp4
