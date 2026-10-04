@@ -3356,7 +3356,10 @@ async function createSession(phone) {
         qr
       } = update;
 
-      if (qr && !sock.authState?.creds?.registered) {
+      if (
+        !sock.authState?.creds?.registered &&
+        !session.pairingCode
+      ) {
         try {
           const code = await sock.requestPairingCode(id);
 
@@ -3609,14 +3612,30 @@ app.post("/api/pair", async (req, res) => {
       });
     }
 
-    const session =
-      await createSession(phone);
+    const session = await createSession(phone);
+
+    const startedAt = Date.now();
+
+    while (
+      !session.pairingCode &&
+      Date.now() - startedAt < 15000
+    ) {
+      await new Promise(resolve =>
+        setTimeout(resolve, 100)
+      );
+    }
+
+    if (!session.pairingCode) {
+      return res.status(504).json({
+        ok: false,
+        error: "Pairing code could not be generated yet. Please try again."
+      });
+    }
 
     res.json({
       ok: true,
       session: publicSession(session),
-      pairingCode:
-        session.pairingCode || null
+      pairingCode: session.pairingCode
     });
   } catch (error) {
     stats.errors++;

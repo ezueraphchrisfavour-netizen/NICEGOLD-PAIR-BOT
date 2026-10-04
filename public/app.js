@@ -765,7 +765,7 @@ async function pairBot() {
     if (button) {
       button.disabled = true;
       button.dataset.oldText = button.textContent;
-      button.textContent = "Pairing...";
+      button.textContent = "Generating Code...";
     }
 
     const data = await api("/api/pair", {
@@ -777,7 +777,7 @@ async function pairBot() {
       showPairingCode(data.code || data.pairingCode);
     } else {
       notify(
-        data.message || "Pairing request sent",
+        data.message || "Pairing code ready",
         "success"
       );
     }
