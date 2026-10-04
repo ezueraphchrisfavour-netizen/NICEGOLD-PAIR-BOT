@@ -3351,6 +3351,34 @@ async function createSession(phone) {
 
   /*
   |--------------------------------------------------------------------------
+  | INCOMING WHATSAPP MESSAGES
+  |--------------------------------------------------------------------------
+  */
+
+  sock.ev.on(
+    "messages.upsert",
+    async ({ messages }) => {
+      for (const msg of messages || []) {
+        try {
+          await handleIncomingMessage(
+            sock,
+            msg,
+            session
+          );
+        } catch (error) {
+          stats.errors++;
+
+          log(
+            "ERROR",
+            `Message handling failed: ${error?.message || error}`
+          );
+        }
+      }
+    }
+  );
+
+  /*
+  |--------------------------------------------------------------------------
   | AUTOMATIC PAIRING CODE
   |--------------------------------------------------------------------------
   */
