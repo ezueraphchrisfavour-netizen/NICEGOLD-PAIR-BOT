@@ -3292,34 +3292,14 @@ async function createSession(phone) {
   const id = sessionId(phone);
 
   if (!id) {
-    throw new Error(
-      "Invalid WhatsApp number. Use the full international number with country code."
-    );
+    throw new Error("Invalid phone number.");
   }
 
-  let existing = sessions.get(id);
+  const existing = sessions.get(id);
 
-  /*
-  |--------------------------------------------------------------------------
-  | REUSE ONLY A LIVE SESSION
-  |--------------------------------------------------------------------------
-  */
-
-  if (
-    existing?.sock &&
-    (
-      existing.status === "CONNECTING" ||
-      existing.status === "CONNECTED"
-    )
-  ) {
+  if (existing?.sock) {
     return existing;
   }
-
-  /*
-  |--------------------------------------------------------------------------
-  | SESSION DIRECTORY
-  |--------------------------------------------------------------------------
-  */
 
   const sessionFolder = path.join(
     SESSIONS_DIR,
@@ -3335,12 +3315,6 @@ async function createSession(phone) {
     saveCreds
   } = await useMultiFileAuthState(sessionFolder);
 
-  /*
-  |--------------------------------------------------------------------------
-  | SESSION OBJECT
-  |--------------------------------------------------------------------------
-  */
-
   const session = existing || {
     id,
     phone: id,
@@ -3348,25 +3322,11 @@ async function createSession(phone) {
     sock: null,
     pairingCode: null,
     createdAt: Date.now(),
-    connectedAt: null,
-    pairingRequested: false,
-    reconnecting: false
+    reconnecting: false,
+    pairingRequested: false
   };
 
-  session.phone = id;
-  session.sock = null;
-  session.status = "CONNECTING";
-  session.pairingCode = null;
-  session.pairingRequested = false;
-  session.connectedAt = null;
-
   sessions.set(id, session);
-
-  /*
-  |--------------------------------------------------------------------------
-  | BAILEYS SOCKET
-  |--------------------------------------------------------------------------
-  */
 
   const sock = makeWASocket({
     auth: state,
@@ -3380,12 +3340,9 @@ async function createSession(phone) {
   });
 
   session.sock = sock;
-
-  /*
-  |--------------------------------------------------------------------------
-  | SAVE CREDENTIALS
-  |--------------------------------------------------------------------------
-  */
+  session.status = "CONNECTING";
+  session.pairingCode = null;
+  session.pairingRequested = false;
 
   sock.ev.on(
     "creds.update",
@@ -3422,314 +3379,238 @@ async function createSession(phone) {
 
   /*
   |--------------------------------------------------------------------------
-  | CONNECTION + PAIRING
+  | AUTOMATIC PAIRING CODE
   |--------------------------------------------------------------------------
   */
+
+  if (!state.creds.registered) {
+    setTimeout(async () => {
+      if (
+        session.pairingRequested ||
+        session.pairingCode ||
+        session.status === "CONNECTED"
+      ) {
+        return;
+      }
+
+      session.pairingRequested = true;
+
+      try {
+        log(
+          "PAIRING",
+          `Generating WhatsApp pairing code for ${id}`
+        );
+
+        const code =
+          await sock.requestPairingCode(id);
+
+        session.pairingCode = code;
+
+        log(
+          "PAIRING",
+          `Pairing code generated for ${id}: ${code}`
+        );
+      } catch (error) {
+        session.pairingRequested = false;
+        stats.errors++;
+
+        log(
+          "ERROR",
+          `Pairing failed: ${error?.message || error}`
+        );
+      }
+    }, 1500);
+  }
 
   sock.ev.on(
     "connection.update",
     async update => {
       const {
         connection,
-        lastDisconnect,
-        qr
+        lastDisconnect
       } = update;
-
-      /*
-      |--------------------------------------------------------------------------
-      | BAILEYS IS READY FOR PAIRING
-      |--------------------------------------------------------------------------
-      |
-      | We intentionally wait for the connection update instead of using
-      | a blind 1.5 second timer.
-      |
-      */
-
-      if (
-        qr &&
-        !state.creds.registered &&
-        !session.pairingRequested &&
-        !session.pairingCode &&
-        session.status !== "CONNECTED"
-      ) {
-        session.pairingRequested = true;
-        session.status = "PAIRING";
-
-        log(
-          "PAIRING",
-          `WhatsApp pairing channel ready for ${id}`
-        );
-
-        try {
-          const code =
-            await sock.requestPairingCode(id);
-
-          if (!code) {
-            throw new Error(
-              "WhatsApp returned an empty pairing code."
-            );
-          }
-
-          session.pairingCode = String(code);
-
-          log(
-            "PAIRING",
-            `Pairing code generated for ${id}: ${session.pairingCode}`
-          );
-        } catch (error) {
-          session.pairingRequested = false;
-          session.pairingCode = null;
-          stats.errors++;
-
-          log(
-            "ERROR",
-            `WhatsApp pairing failed for ${id}: ${error?.message || error}`
-          );
-        }
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | CONNECTED
-      |--------------------------------------------------------------------------
-      */
 
       if (connection === "open") {
         session.status = "CONNECTED";
-        session.sock = sock;
         session.pairingCode = null;
         session.pairingRequested = true;
-        session.reconnecting = false;
-        session.connectedAt = Date.now();
 
         stats.connections++;
-
-        log(
-          "PAIRING SESSION CONNECTED",
-          `WhatsApp pairing session connected successfully: ${id}`
-        );
 
         log(
           "CONNECTED",
           `WhatsApp session connected: ${id}`
         );
-
-        /*
-        | Give the dashboard a clear connected state.
-        */
-        if (typeof session.lastStatusMessage === "undefined") {
-          session.lastStatusMessage =
-            "PAIRING SESSION CONNECTED";
-        }
       }
 
-      /*
-      |--------------------------------------------------------------------------
-      | DISCONNECTED
-      |--------------------------------------------------------------------------
-      */
-
       if (connection === "close") {
+        session.status = "DISCONNECTED";
         session.sock = null;
 
         const code =
           lastDisconnect?.error?.output?.statusCode;
 
+        const disconnectMessage =
+          lastDisconnect?.error?.message ||
+          lastDisconnect?.error?.output?.payload?.message ||
+          "Unknown WhatsApp disconnect reason";
+
         const shouldReconnect =
           code !== DisconnectReason.loggedOut;
 
-        if (shouldReconnect) {
-          session.status = "RECONNECTING";
+        log(
+          "DISCONNECTED",
+          `${id} disconnected. Code: ${code ?? "unknown"}. Reconnect: ${shouldReconnect}. Reason: ${disconnectMessage}`
+        );
+
+        if (
+          shouldReconnect &&
+          !session.reconnecting
+        ) {
           session.reconnecting = true;
 
-          log(
-            "DISCONNECTED",
-            `WhatsApp session disconnected: ${id}. Reconnecting...`
-          );
-
-          /*
-          | Remove the old socket before recreating it.
-          */
           setTimeout(async () => {
             try {
-              const current = sessions.get(id);
-
-              if (
-                current &&
-                current.status === "RECONNECTING"
-              ) {
-                await createSession(id);
-              }
+              await createSession(phone);
             } catch (error) {
               stats.errors++;
 
               log(
                 "ERROR",
-                `Reconnect failed for ${id}: ${error?.message || error}`
+                `Reconnect failed: ${error?.message || error}`
               );
+            } finally {
+              session.reconnecting = false;
             }
-          }, 2000);
-        } else {
-          session.status = "LOGGED_OUT";
-          session.reconnecting = false;
-
-          log(
-            "LOGGED OUT",
-            `WhatsApp session logged out: ${id}`
-          );
+          }, 3000);
         }
       }
     }
   );
 
-  /*
-  |--------------------------------------------------------------------------
-  | IMPORTANT
-  |--------------------------------------------------------------------------
-  |
-  | If the credentials are already registered, Baileys will reconnect using
-  | the saved session. A new pairing code is NOT requested.
-  |
-  */
-
-  if (state.creds.registered) {
-    log(
-      "SESSION",
-      `Saved WhatsApp credentials detected for ${id}`
-    );
-  }
-
   return session;
 }
 
+/*
+|--------------------------------------------------------------------------
+| API
+|--------------------------------------------------------------------------
+*/
+
+app.get("/api/info", (req, res) => {
+  res.json({
+    ok: true,
+    name: settings.botName,
+    version: "V1.1",
+    description: settings.description,
+    prefix: settings.prefix,
+    commands: commandRegistry.size + customCommands.size
+  });
+});
+
+app.get("/api/settings", (req, res) => {
+  res.json({
+    ok: true,
+    settings
+  });
+});
+
+app.post("/api/settings", (req, res) => {
+  settings = {
+    ...settings,
+    ...req.body
+  };
+
+  saveSettings();
+
+  log(
+    "SETTINGS",
+    "Dashboard settings updated."
+  );
+
+  res.json({
+    ok: true,
+    settings
+  });
+});
+
+app.get("/api/stats", (req, res) => {
+  const memory = process.memoryUsage();
+
+  res.json({
+    ok: true,
+    stats: {
+      ...stats,
+      uptime: getUptime(),
+      memory: process.memoryUsage(),
+      heap: {
+        used: memory.heapUsed,
+        total: memory.heapTotal
+      },
+      cpu: os.cpus().length
+    }
+  });
+});
+
+app.get("/api/logs", (req, res) => {
+  res.json({
+    ok: true,
+    logs
+  });
+});
+
+app.get("/api/sessions", (req, res) => {
+  res.json({
+    ok: true,
+    sessions: [...sessions.values()].map(publicSession)
+  });
+});
+
 app.post("/api/pair", async (req, res) => {
   try {
-    const rawPhone =
-      String(req.body?.phone || "").trim();
-
-    const phone =
-      cleanPhone(rawPhone);
+    const phone = cleanPhone(req.body.phone);
 
     if (
-      !phone ||
       phone.length < 8 ||
       phone.length > 15
     ) {
       return res.status(400).json({
         ok: false,
-        error:
-          "Enter the WhatsApp number with its country code."
+        error: "Enter a valid phone number."
       });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | START / LOAD SESSION
-    |--------------------------------------------------------------------------
-    */
+    const session = await createSession(phone);
 
-    const session =
-      await createSession(phone);
-
-    const startedAt =
-      Date.now();
-
-    /*
-    |--------------------------------------------------------------------------
-    | WAIT FOR THE REAL WHATSAPP PAIRING CODE
-    |--------------------------------------------------------------------------
-    |
-    | Do not immediately tell the user that the number is wrong.
-    | Wait for Baileys to establish the pairing channel.
-    |
-    */
+    const startedAt = Date.now();
 
     while (
       !session.pairingCode &&
-      session.status !== "CONNECTED" &&
-      session.status !== "LOGGED_OUT" &&
-      Date.now() - startedAt < 30000
+      Date.now() - startedAt < 15000
     ) {
       await new Promise(resolve =>
-        setTimeout(resolve, 200)
+        setTimeout(resolve, 100)
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ALREADY CONNECTED
-    |--------------------------------------------------------------------------
-    */
-
-    if (session.status === "CONNECTED") {
-      return res.json({
-        ok: true,
-        connected: true,
-        session: publicSession(session),
-        message:
-          "PAIRING SESSION CONNECTED"
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CODE READY
-    |--------------------------------------------------------------------------
-    */
-
-    if (session.pairingCode) {
-      return res.json({
-        ok: true,
-        connected: false,
-        session: publicSession(session),
-        pairingCode:
-          session.pairingCode,
-        message:
-          "Pairing code ready"
-      });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOGGED OUT
-    |--------------------------------------------------------------------------
-    */
-
-    if (session.status === "LOGGED_OUT") {
-      return res.status(409).json({
+    if (!session.pairingCode) {
+      return res.status(504).json({
         ok: false,
-        error:
-          "This WhatsApp session is logged out. Start a new pairing session."
+        error: "Pairing code could not be generated yet. Please try again."
       });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TIMEOUT
-    |--------------------------------------------------------------------------
-    */
-
-    return res.status(504).json({
-      ok: false,
-      error:
-        "WhatsApp did not make the pairing channel ready in time. Please try again."
+    res.json({
+      ok: true,
+      session: publicSession(session),
+      pairingCode: session.pairingCode
     });
-
   } catch (error) {
     stats.errors++;
 
-    const message =
-      error?.message ||
-      String(error);
-
-    log(
-      "ERROR",
-      `Pairing request failed: ${message}`
-    );
-
     res.status(500).json({
       ok: false,
-      error: message
+      error: error.message
     });
   }
 });
@@ -4319,18 +4200,74 @@ async function restoreSessions() {
 
   for (const id of stored) {
     try {
-      await createSession(id);
+      const sessionFolder =
+        path.join(
+          SESSIONS_DIR,
+          id
+        );
+
+      const credsFile =
+        path.join(
+          sessionFolder,
+          "creds.json"
+        );
+
+      /*
+      |--------------------------------------------------------------------------
+      | ONLY RESTORE COMPLETED WHATSAPP SESSIONS
+      |--------------------------------------------------------------------------
+      */
+
+      if (!fs.existsSync(credsFile)) {
+        log(
+          "RESTORE",
+          `Skipping ${id}: credentials file not found`
+        );
+
+        continue;
+      }
+
+      let creds;
+
+      try {
+        creds =
+          JSON.parse(
+            fs.readFileSync(
+              credsFile,
+              "utf8"
+            )
+          );
+      } catch {
+        log(
+          "RESTORE",
+          `Skipping ${id}: credentials file is invalid`
+        );
+
+        continue;
+      }
+
+      if (creds.registered !== true) {
+        log(
+          "RESTORE",
+          `Skipping ${id}: WhatsApp pairing was not completed`
+        );
+
+        continue;
+      }
 
       log(
         "RESTORE",
-        `Restoring session ${id}`
+        `Restoring verified WhatsApp session ${id}`
       );
+
+      await createSession(id);
+
     } catch (error) {
       stats.errors++;
 
       log(
         "ERROR",
-        `Could not restore ${id}: ${error.message}`
+        `Could not restore ${id}: ${error?.message || error}`
       );
     }
   }
